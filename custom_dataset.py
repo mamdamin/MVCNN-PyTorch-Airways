@@ -1,12 +1,15 @@
 from torch.utils.data.dataset import Dataset
 import os
+import pandas as pd
+import re
 from PIL import Image
 
 class MultiViewDataSet(Dataset):
 
     def find_classes(self, dir):
         classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
-        classes.sort()
+        self.classes = ['Standard', 'Abnormal']
+        #classes.sort()
         class_to_idx = {classes[i]: i for i in range(len(classes))}
 
         return classes, class_to_idx
@@ -22,14 +25,29 @@ class MultiViewDataSet(Dataset):
         self.target_transform = target_transform
 
         # root / <label>  / <train/test> / <item> / <view>.png
-        for label in os.listdir(root): # Label
-            for item in os.listdir(root + '/' + label + '/' + data_type):
-                views = []
-                for view in os.listdir(root + '/' + label + '/' + data_type + '/' + item):
-                    views.append(root + '/' + label + '/' + data_type + '/' + item + '/' + view)
+        # Change here to read txt files directly
+        
+        data_type += '.txt'
+        root = os.path.join(root,'Sets')
+        myset = os.path.join(root,data_type)
+        print(myset)
+        subjects = pd.read_csv(myset,header=None,sep=' ',names=['MVtxt','label'])
+        #print(subjects.head(2),'\n')
 
-                self.x.append(views)
-                self.y.append(self.class_to_idx[label])
+        for idx, subject,label in subjects.itertuples():
+            viewfiles = pd.read_csv(subject,header=None, sep=' ',names=['MVtxt','angle'],skiprows=2)
+            views = []
+            for i in range(len(viewfiles)):
+                AA = re.search("Angle_[0-9]*",viewfiles.iloc[i,0]).group().upper()
+                viewfiles.iloc[i,1] = int(AA[6:])
+            viewfiles.sort_values(by='angle',inplace=True)
+            views = viewfiles.MVtxt.tolist()
+            views = views[::4]        
+
+            self.x.append(views)
+            self.y.append(label)
+        #print(self.y)
+        #print('Data Loaded!')
 
     # Override to give PyTorch access to any image on the dataset
     def __getitem__(self, index):
