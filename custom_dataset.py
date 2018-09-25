@@ -28,7 +28,7 @@ class MultiViewDataSet(Dataset):
         # Change here to read txt files directly
         
         data_type += '.txt'
-        root = os.path.join(root,'Sets')
+        root = os.path.join(root,'sets')
         myset = os.path.join(root,data_type)
         print(myset)
         subjects = pd.read_csv(myset,header=None,sep=' ',names=['MVtxt','label'])

@@ -52,7 +52,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
 train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=2)
 
-dset_val = MultiViewDataSet(args.data, 'test', transform=transform)
+dset_val = MultiViewDataSet(args.data, 'validation', transform=transform)
 val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=2)
 
 classes = dset_train.classes
@@ -75,7 +75,7 @@ cudnn.benchmark = True
 
 print('Running on ' + str(device))
 
-logger = Logger('logs')
+logger = Logger('/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch/logs')
 
 # Loss and Optimizer
 lr = args.lr

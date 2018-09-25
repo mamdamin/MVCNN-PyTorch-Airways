@@ -20,6 +20,6 @@ def logEpoch(logger, model, epoch, loss, accuracy):
     #for tag, images in info.items():
         #logger.image_summary(tag, images, epoch)
 
-def save_checkpoint(state, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
+def save_checkpoint(state, checkpoint='/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch', filename='checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
