@@ -26,7 +26,7 @@ class MultiViewDataSet(Dataset):
 
         # root / <label>  / <train/test> / <item> / <view>.png
         # Change here to read txt files directly
-        
+
         data_type += '.txt'
         root = os.path.join(root,'sets')
         myset = os.path.join(root,data_type)
@@ -42,9 +42,20 @@ class MultiViewDataSet(Dataset):
                 viewfiles.iloc[i,1] = int(AA[6:])
             viewfiles.sort_values(by='angle',inplace=True)
             views = viewfiles.MVtxt.tolist()
-            views = views[::4]        
+            views = views[::4]
 
-            self.x.append(views)
+            image_views = []
+
+            for view in views:
+                im = Image.open(view)
+                im = im.convert('RGB')
+                if self.transform is not None:
+                    im = self.transform(im)
+                image_views.append(im)
+
+            #return views, self.y[index]
+
+            self.x.append(image_views)
             self.y.append(label)
         #print(self.y)
         #print('Data Loaded!')
@@ -54,9 +65,9 @@ class MultiViewDataSet(Dataset):
         orginal_views = self.x[index]
         views = []
 
-        for view in orginal_views:
-            im = Image.open(view)
-            im = im.convert('RGB')
+        for im in orginal_views:
+            #im = Image.open(view)
+            #im = im.convert('RGB')
             if self.transform is not None:
                 im = self.transform(im)
             views.append(im)
