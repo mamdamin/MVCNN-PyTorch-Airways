@@ -8,7 +8,7 @@ class MultiViewDataSet(Dataset):
 
     def find_classes(self, dir):
         classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
-        self.classes = ['Standard', 'Abnormal']
+        classes = ['Standard', 'Abnormal']
         #classes.sort()
         class_to_idx = {classes[i]: i for i in range(len(classes))}
 

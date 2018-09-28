@@ -14,11 +14,11 @@ def logEpoch(logger, model, epoch, loss, accuracy):
         logger.histo_summary(tag, value.data.cpu().numpy(), epoch)
         logger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
 
-    # 3. Log training images (image summary)
-    #info = {'images': images.view(-1, 28, 28)[:10].cpu().numpy()}
+    #3. Log training images (image summary)
+    info = {'images': images.view(-1, 28, 28)[:10].cpu().numpy()}
 
-    #for tag, images in info.items():
-        #logger.image_summary(tag, images, epoch)
+    for tag, images in info.items():
+        logger.image_summary(tag, images, epoch)
 
 def save_checkpoint(state, checkpoint='/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch', filename='checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
