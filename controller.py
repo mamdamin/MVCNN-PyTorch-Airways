@@ -10,6 +10,7 @@ from PIL.Image import BILINEAR
 import argparse
 import numpy as np
 import time
+import uuid
 import os
 
 from models.resnet import *
@@ -41,8 +42,13 @@ parser.add_argument('-o', '--output', default='', type=str, metavar='PATH',
 #parser.add_argument('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
 
 args = parser.parse_args()
+args.output = os.path.join(args.output, str(uuid.uuid4().hex))
+if not os.path.exists(args.output):
+    os.makedirs(args.output)
 
 print('Loading data')
+with open(os.path.join(args.output,'Arguments.txt'), "w") as text_file:
+    print(args, file = text_file) #text_file.write(args)
 
 transform = transforms.Compose([
     transforms.CenterCrop(500),
