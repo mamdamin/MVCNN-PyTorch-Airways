@@ -41,8 +41,8 @@ args = parser.parse_args()
 print('Loading data')
 
 transform = transforms.Compose([
-    transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=True, fillcolor=0) # Augmentation
     transforms.CenterCrop(500),
+    transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=True, fillcolor=0) # Augmentation
     transforms.Resize(224),
     transforms.ToTensor(),
 ])
