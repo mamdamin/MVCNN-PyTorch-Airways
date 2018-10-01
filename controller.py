@@ -35,6 +35,9 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('-r', '--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
+parser.add_argument('-o', '--output', default='', type=str, metavar='PATH',
+                    help='path to Output folder for logs and checkpoints (default: none)')
+
 #parser.add_argument('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
 
 args = parser.parse_args()
@@ -77,7 +80,7 @@ cudnn.benchmark = True
 
 print('Running on ' + str(device))
 
-logger = Logger('/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch/logs')
+logger = Logger(os.path.join(args.output, 'logs'))
 
 # Loss and Optimizer
 lr = args.lr
@@ -203,7 +206,9 @@ for epoch in range(start_epoch, n_epochs):
             'acc': avg_test_acc,
             'best_acc': best_acc,
             'optimizer': optimizer.state_dict(),
-        })
+            },
+            checkpoint = args.output
+        )
 
     # Decaying Learning Rate
     if (epoch + 1) % args.lr_decay_freq == 0:
