@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
 import torchvision.transforms as transforms
+from PIL.Image import BILINEAR
 
 import argparse
 import numpy as np
@@ -42,7 +43,7 @@ print('Loading data')
 
 transform = transforms.Compose([
     transforms.CenterCrop(500),
-    transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=True, fillcolor=0) # Augmentation
+    transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=BILINEAR, fillcolor=0), # Augmentation
     transforms.Resize(224),
     transforms.ToTensor(),
 ])
