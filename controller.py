@@ -61,10 +61,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Load dataset
 dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
-train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=16)
+train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
 dset_val = MultiViewDataSet(args.data, 'validation', transform=transform)
-val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=16)
+val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
 classes = dset_train.classes
 print(len(classes), classes)

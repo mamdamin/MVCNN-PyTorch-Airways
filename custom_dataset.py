@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import re
 from PIL import Image
+import sys
 
 class MultiViewDataSet(Dataset):
 
@@ -33,7 +34,8 @@ class MultiViewDataSet(Dataset):
         print(myset)
         subjects = pd.read_csv(myset,header=None,sep=' ',names=['MVtxt','label'])
         #print(subjects.head(2),'\n')
-
+        c = 0
+        Max = len(subjects)
         for idx, subject,label in subjects.itertuples():
             viewfiles = pd.read_csv(subject,header=None, sep=' ',names=['MVtxt','angle'],skiprows=2)
             views = []
@@ -42,8 +44,13 @@ class MultiViewDataSet(Dataset):
                 viewfiles.iloc[i,1] = int(AA[6:])
             viewfiles.sort_values(by='angle',inplace=True)
             views = viewfiles.MVtxt.tolist()
-            views = views[::4]
+            #views = views[:36:1]
+            sys.stdout.flush()
+            sys.stdout.write('Loading {} data: {:.0f}% \r'.format(data_type.split('.')[0],c*100/Max))
 
+            c += 1
+            #print((views))
+            #halt
             image_views = []
 
             for view in views:
