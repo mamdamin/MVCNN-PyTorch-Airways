@@ -6,6 +6,7 @@ from torch.autograd import Variable
 
 import torchvision.transforms as transforms
 from PIL.Image import BILINEAR
+from multiprocessing import Process, freeze_support, set_start_method
 
 import argparse
 import numpy as np
@@ -38,6 +39,8 @@ parser.add_argument('-r', '--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-o', '--output', default='', type=str, metavar='PATH',
                     help='path to Output folder for logs and checkpoints (default: none)')
+parser.add_argument('-w', '--workers', default=4, type=int,
+                    metavar='N', help='Number of workers in input pipr (default: 4)')
 
 #parser.add_argument('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
 
@@ -58,13 +61,14 @@ transform = transforms.Compose([
 ])
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#resnet = nn.DataParallel(resnet18(num_classes=2), device_ids=[0, 1, 2, 3])
 
 # Load dataset
 dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
-train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=6)
+train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
 dset_val = MultiViewDataSet(args.data, 'validation', transform=transform)
-val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=6)
+val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
 classes = dset_train.classes
 print(len(classes), classes)
@@ -82,6 +86,7 @@ elif args.resnet == 152:
 
 print('Using resnet' + str(args.resnet))
 resnet.to(device)
+resnet = nn.DataParallel(resnet, device_ids=[0, 1],output_device=0)
 cudnn.benchmark = True
 
 print('Running on ' + str(device))
