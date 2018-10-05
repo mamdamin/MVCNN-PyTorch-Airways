@@ -13,6 +13,7 @@ import numpy as np
 import time
 import uuid
 import os
+import pickle
 
 from models.resnet import *
 import util
@@ -39,7 +40,7 @@ parser.add_argument('-r', '--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-o', '--output', default='', type=str, metavar='PATH',
                     help='path to Output folder for logs and checkpoints (default: none)')
-parser.add_argument('-w', '--workers', default=4, type=int,
+parser.add_argument('-w', '--workers', default=0, type=int,
                     metavar='N', help='Number of workers in input pipr (default: 4)')
 
 #parser.add_argument('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
@@ -55,7 +56,7 @@ with open(os.path.join(args.output,'Arguments.txt'), "w") as text_file:
 
 transform = transforms.Compose([
     transforms.CenterCrop(500),
-    transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=BILINEAR, fillcolor=0), # Augmentation
+    #transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=BILINEAR, fillcolor=0), # Augmentation
     transforms.Resize(224),
     transforms.ToTensor(),
 ])
@@ -64,10 +65,24 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #resnet = nn.DataParallel(resnet18(num_classes=2), device_ids=[0, 1, 2, 3])
 
 # Load dataset
+#try:
+#    fileObject = open(os.path.join(args.data,'trainingDataset.HD5'),'r')
+#    dset_train = pickle.load(fileObject)
+#except: 
 dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
+#fileObject = open(os.path.join(args.data,'trainingDataset.HD5'),'wb')
+#pickle.dump(dset_train,fileObject)
+print("\n Training Data Loaded!")
 train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
+#try:
+#    fileObject = open(os.path.join(args.data,'validationDataset.HD5'),'r')
+#    dset_val = pickle.load(fileObject)
+#except: 
 dset_val = MultiViewDataSet(args.data, 'validation', transform=transform)
+#    fileObject = open(os.path.join(args.data,'validationDataset.HD5'),'wb')
+#    pickle.dump(dset_train,fileObject)
+print("\n Validation Data Loaded!")
 val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
 classes = dset_train.classes
@@ -86,7 +101,7 @@ elif args.resnet == 152:
 
 print('Using resnet' + str(args.resnet))
 resnet.to(device)
-resnet = nn.DataParallel(resnet, device_ids=[0, 1],output_device=0)
+resnet = nn.DataParallel(resnet, device_ids=[0],output_device=0)
 cudnn.benchmark = True
 
 print('Running on ' + str(device))
@@ -181,6 +196,14 @@ def eval(data_loader, is_test=False):
 
     return avg_test_acc, avg_loss
 
+
+#Check input pipeline throughput
+start = time.time()
+for i, (inputs, targets) in enumerate(train_loader):
+    # Convert from list of 3D to 4D
+    inputs = np.stack(inputs, axis=1)
+    print(i,inputs.shape)
+print('reading one epoch time taken: %.2f sec.' % (time.time() - start))
 
 # Training / Eval loop
 if args.resume:

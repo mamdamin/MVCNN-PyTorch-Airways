@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import re
 from PIL import Image
+#import cv2
 import sys
 
 class MultiViewDataSet(Dataset):
@@ -33,7 +34,7 @@ class MultiViewDataSet(Dataset):
         myset = os.path.join(root,data_type)
         print(myset)
         subjects = pd.read_csv(myset,header=None,sep=' ',names=['MVtxt','label'])
-        #subjects = subjects.iloc[:64,:]
+        #subjects = subjects.iloc[:99,:]
         #print(subjects.head(2),'\n')
         c = 0
         Max = len(subjects)
@@ -57,8 +58,8 @@ class MultiViewDataSet(Dataset):
             for view in views:
                 im = Image.open(view)
                 im = im.convert('RGB')
-                #if self.transform is not None:
-                #    im = self.transform(im)
+                if self.transform is not None:
+                    im = self.transform(im)
                 image_views.append(im)
 
             #return views, self.y[index]
@@ -76,8 +77,8 @@ class MultiViewDataSet(Dataset):
         for im in orginal_views:
             #im = Image.open(view)
             #im = im.convert('RGB')
-            if self.transform is not None:
-                im = self.transform(im)
+            #if self.transform is not None:
+            #    im = self.transform(im)
             views.append(im)
 
         return views, self.y[index]
