@@ -34,7 +34,7 @@ class MultiViewDataSet(Dataset):
         myset = os.path.join(root,data_type)
         print(myset)
         subjects = pd.read_csv(myset,header=None,sep=' ',names=['MVtxt','label'])
-        #subjects = subjects.iloc[:99,:]
+        #subjects = subjects.iloc[:128,:]
         #print(subjects.head(2),'\n')
         c = 0
         Max = len(subjects)

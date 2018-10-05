@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
+import tensorflow as tf
 
 import torchvision.transforms as transforms
 from PIL.Image import BILINEAR
@@ -16,6 +17,8 @@ import os
 import pickle
 
 from models.resnet import *
+from augment import augmentImages
+
 import util
 from logger import Logger
 from custom_dataset import MultiViewDataSet
@@ -72,7 +75,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
 #fileObject = open(os.path.join(args.data,'trainingDataset.HD5'),'wb')
 #pickle.dump(dset_train,fileObject)
-print("\n Training Data Loaded!")
+print("\nTraining Data Loaded!")
 train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
 #try:
@@ -82,7 +85,7 @@ train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, 
 dset_val = MultiViewDataSet(args.data, 'validation', transform=transform)
 #    fileObject = open(os.path.join(args.data,'validationDataset.HD5'),'wb')
 #    pickle.dump(dset_train,fileObject)
-print("\n Validation Data Loaded!")
+print("\nValidation Data Loaded!")
 val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
 classes = dset_train.classes
@@ -101,7 +104,9 @@ elif args.resnet == 152:
 
 print('Using resnet' + str(args.resnet))
 resnet.to(device)
-resnet = nn.DataParallel(resnet, device_ids=[0],output_device=0)
+device_ids = range(torch.cuda.device_count())
+print("CUDA devices available: ",device_ids)
+resnet = nn.DataParallel(resnet, device_ids=device_ids,output_device=0)
 cudnn.benchmark = True
 
 print('Running on ' + str(device))
@@ -118,6 +123,37 @@ best_acc = 0.0
 best_loss = 0.0
 start_epoch = 0
 
+
+#GPU Augmentation Graph
+with tf.Graph().as_default():
+        # placeholders for graph input
+        view_ = tf.placeholder('float32', shape=(None, 3, 224, 224), name='im0')
+        # graph outputs
+        with tf.device('/gpu:0'):
+            view = tf.transpose(view_, perm=[0, 2, 3, 1])
+            aug_view = augmentImages(view, 
+                horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
+            aug_view = tf.transpose(aug_view, perm=[0, 3, 1 ,2])
+        # build the summary operation based on the F colection of Summaries
+        # must be after merge_all_summaries
+        
+        init_op = tf.global_variables_initializer()
+        config = tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.1))
+        config.gpu_options.allow_growth = False
+        sess = tf.Session(config=config)#config=tf.ConfigProto(log_device_placement=FLAGS.log_device_placement))
+
+def augment_on_GPU(inputs):
+    list_of_augviews = []
+    for views in inputs:
+        #with tf.device('/gpu:0'):
+        #print("Shape of views is:",views.shape)
+        val_feed_dict = {view_: views}
+        aug_views = sess.run(aug_view, feed_dict=val_feed_dict)
+        list_of_augviews.append(aug_views)
+        #print("Shape of aug views is:",aug_views.shape)
+            
+    inputs = np.stack(list_of_augviews, axis=1)
+    return inputs
 
 # Helper functions
 def load_checkpoint():
@@ -138,8 +174,8 @@ def train():
 
     for i, (inputs, targets) in enumerate(train_loader):
         # Convert from list of 3D to 4D
-        inputs = np.stack(inputs, axis=1)
-
+        #inputs = np.stack(inputs, axis=1)
+        inputs = augment_on_GPU(inputs)
         inputs = torch.from_numpy(inputs)
 
         inputs, targets = inputs.cuda(), targets.cuda()
@@ -173,8 +209,8 @@ def eval(data_loader, is_test=False):
     for i, (inputs, targets) in enumerate(data_loader):
         with torch.no_grad():
             # Convert from list of 3D to 4D
-            inputs = np.stack(inputs, axis=1)
-
+            #inputs = np.stack(inputs, axis=1)
+            inputs = augment_on_GPU(inputs)
             inputs = torch.from_numpy(inputs)
 
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -198,11 +234,14 @@ def eval(data_loader, is_test=False):
 
 
 #Check input pipeline throughput
+
+        
 start = time.time()
 for i, (inputs, targets) in enumerate(train_loader):
     # Convert from list of 3D to 4D
-    inputs = np.stack(inputs, axis=1)
+    inputs = augment_on_GPU(inputs)
     print(i,inputs.shape)
+#sess.close()
 print('reading one epoch time taken: %.2f sec.' % (time.time() - start))
 
 # Training / Eval loop
