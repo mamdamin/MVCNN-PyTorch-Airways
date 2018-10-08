@@ -10,25 +10,6 @@ import numpy as np
 from augment import augmentImages
 
 #GPU Augmentation Graph
-'''
-with tf.Graph().as_default():
-        # placeholders for graph input
-        view_ = tf.placeholder('float32', shape=(None, 3, 224, 224), name='im0')
-        # graph outputs
-        with tf.device('/gpu:0'):
-            view = tf.transpose(view_, perm=[0, 2, 3, 1])
-            aug_view = augmentImages(view, 
-                horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
-            aug_view = tf.transpose(aug_view, perm=[0, 3, 1 ,2])
-        # build the summary operation based on the F colection of Summaries
-        # must be after merge_all_summaries
-        
-        init_op = tf.global_variables_initializer()
-        config = tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.1))
-        config.gpu_options.allow_growth = False
-        sess = tf.Session(config=config)#config=tf.ConfigProto(log_device_placement=FLAGS.log_device_placement))
-'''
-
 # Creates a graph.
 c = []
 g_1 = tf.Graph()
@@ -42,7 +23,7 @@ with g_1.as_default():
         with tf.device('/gpu:%d' % i):
             with tf.name_scope('%s_%d' % ('tower', i)) as scope:
             # graph outputs
-                view = tf.transpose(view_[i::4], perm=[0, 2, 3, 1])
+                view = tf.transpose(view_, perm=[0, 2, 3, 1])
                 aug_view = augmentImages(view, 
                     horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
                 c.append(tf.transpose(aug_view, perm=[0, 3, 1 ,2]))
@@ -52,8 +33,8 @@ with g_1.as_default():
       aug_view = tf.concat(c,axis=0)
 
 # Creates a session with log_device_placement set to True.
-sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.4)))
-# Runs the op.
+sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.02)))
+
 ##########
 def augment_on_GPU(views):
     #list_of_augviews = []
