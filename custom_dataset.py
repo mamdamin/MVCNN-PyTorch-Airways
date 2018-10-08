@@ -9,44 +9,6 @@ import tensorflow as tf
 import numpy as np
 from augment import augmentImages
 
-#GPU Augmentation Graph
-# Creates a graph.
-c = []
-g_1 = tf.Graph()
-with g_1.as_default():
-#with tf.Graph().as_default():
-    with tf.device('/cpu:0'):
-                    # placeholders for graph input
-        view_ = tf.placeholder('float32', shape=(48, 3, 224, 224), name='im0')
-            
-    for i in [3]:#range(4):
-        with tf.device('/gpu:%d' % i):
-            with tf.name_scope('%s_%d' % ('tower', i)) as scope:
-            # graph outputs
-                view = tf.transpose(view_, perm=[0, 2, 3, 1])
-                aug_view = augmentImages(view, 
-                    horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
-                c.append(tf.transpose(aug_view, perm=[0, 3, 1 ,2]))
-                
-            
-    with tf.device('/cpu:0'):
-      aug_view = tf.concat(c,axis=0)
-
-# Creates a session with log_device_placement set to True.
-sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.02)))
-
-##########
-def augment_on_GPU(views):
-    #list_of_augviews = []
-    #print("Shape of views is:",views.shape)
-        val_feed_dict = {view_: views}
-        aug_views = sess.run(aug_view, feed_dict=val_feed_dict)
-    #list_of_augviews.append(aug_views)
-        #print("Shape of aug views is:",aug_views.shape)
-            
-    #inputs = np.stack(list_of_augviews, axis=1)
-        return aug_views
-
 class MultiViewDataSet(Dataset):
     
     
@@ -67,7 +29,7 @@ class MultiViewDataSet(Dataset):
 
         self.transform = transform
         self.target_transform = target_transform
-        self.sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.02)))
+        #self.sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.02)))
 
         # root / <label>  / <train/test> / <item> / <view>.png
         # Change here to read txt files directly
@@ -124,7 +86,8 @@ class MultiViewDataSet(Dataset):
             #    im = self.transform(im)
             #views.append(im)
         #augment_on_GPU(original_views)
-        return augment_on_GPU(original_views), self.y[index]
+            #aug_views = augment_on_GPU(original_views)
+        return original_views, self.y[index]
 
     # Override to give PyTorch size of dataset
     def __len__(self):

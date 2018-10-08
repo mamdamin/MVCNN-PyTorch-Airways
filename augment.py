@@ -1,4 +1,6 @@
 import tensorflow as tf
+#from tensorflow.python.client import device_lib
+
 import math
 
 def augmentImages(images,
@@ -104,3 +106,50 @@ def augmentImages(images,
       labels = lam * labels + (1 - lam) * cshift(labels)
 
   return images#, labels
+
+#GPU Augmentation Graph
+# Creates a graph.
+c = []
+g_1 = tf.Graph()
+
+#nofGPUs = len(device_lib.list_local_devices())-1
+#print("Number of GPUs: ", nofGPUs)
+nofGPUs = 4
+with g_1.as_default():
+#with tf.Graph().as_default():
+    with tf.device('/cpu:0'):
+                    # placeholders for graph input
+        view_ = tf.placeholder('float32', shape=(None, 48, 3, 224, 224), name='im0')
+        view_2 = tf.reshape(view_, [nofGPUs,-1 , 3, 224, 224], name='first_Reshape')
+        chunks =[]
+        for i in range(nofGPUs):
+            chunks.append(view_2[i,:])
+    for i in range(nofGPUs):
+        with tf.device('/gpu:%d' % i):
+            with tf.name_scope('%s_%d' % ('tower', i)) as scope:
+            # graph outputs
+                view = tf.transpose(chunks[i], perm=[0, 2, 3, 1])
+                view = augmentImages(view, 
+                    horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
+                c.append(tf.transpose(view, perm=[0, 3, 1 ,2]))
+                
+            
+    with tf.device('/cpu:0'):
+      aug_view = tf.concat(c,axis=0)
+      aug_view = tf.reshape(aug_view, shape=(-1, 48, 3, 224, 224))
+
+# Creates a session with log_device_placement set to True.
+sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(allow_growth = True)))
+#per_process_gpu_memory_fraction=.1
+
+##########
+def augment_on_GPU(views):
+    #list_of_augviews = []
+    #print("Shape of views is:",views.shape)
+        val_feed_dict = {view_: views}
+        aug_views = sess.run(aug_view, feed_dict=val_feed_dict)
+    #list_of_augviews.append(aug_views)
+        #print("Shape of aug views is:",aug_views.shape)
+            
+    #inputs = np.stack(list_of_augviews, axis=1)
+        return aug_views
