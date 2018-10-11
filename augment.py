@@ -1,7 +1,7 @@
 import tensorflow as tf
-#from tensorflow.python.client import device_lib
-
+from tensorflow.python.client import device_lib
 import math
+import subprocess
 
 def augmentImages(images,
             resize=None, # (width, height) tuple or None
@@ -114,7 +114,18 @@ g_1 = tf.Graph()
 
 #nofGPUs = len(device_lib.list_local_devices())-1
 #print("Number of GPUs: ", nofGPUs)
-nofGPUs = 4
+#nofGPUs = 1
+'''
+def get_number_of_GPUs():
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.001,allow_growth = False)))
+    nofGPUs = len(device_lib.list_local_devices())-1
+    sess.close()
+    return nofGPUs
+'''
+
+#Get number of gpus:
+nofGPUs=str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
+print("Number of GPUs: ",nofGPUs)
 with g_1.as_default():
 #with tf.Graph().as_default():
     with tf.device('/cpu:0'):
@@ -141,7 +152,6 @@ with g_1.as_default():
 # Creates a session with log_device_placement set to True.
 sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(allow_growth = True)))
 #per_process_gpu_memory_fraction=.1
-
 ##########
 def augment_on_GPU(views):
     #list_of_augviews = []
