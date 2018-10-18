@@ -18,7 +18,7 @@ def augmentImages(images,
   
   # My experiments showed that casting on GPU improves training performance
   #print(images.dtype)
-  if images.dtype != None:#tf.float32:
+  if images.dtype != tf.float32:
     images = tf.image.convert_image_dtype(images, dtype=tf.float32)
     images = tf.subtract(images, 0.5)
     images = tf.multiply(images, 2.0)
