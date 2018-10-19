@@ -7,7 +7,7 @@ from PIL import Image
 import sys
 import tensorflow as tf
 import numpy as np
-from augment import augmentImages
+#from augment import augmentImages
 
 class MultiViewDataSet(Dataset):
     
@@ -20,7 +20,7 @@ class MultiViewDataSet(Dataset):
 
         return classes, class_to_idx
 
-    def __init__(self, root, data_type, transform=None, target_transform=None):
+    def __init__(self, root, data_type, step = 1,transform=None, target_transform=None):
         self.x = []
         self.y = []
         self.root = root
@@ -51,7 +51,7 @@ class MultiViewDataSet(Dataset):
                 viewfiles.iloc[i,1] = int(AA[6:])
             viewfiles.sort_values(by='angle',inplace=True)
             views = viewfiles.MVtxt.tolist()
-            #views = views[:36:1]
+            views = views[::step]
             sys.stdout.flush()
             sys.stdout.write('Loading {} data: {:.0f}% \r'.format(data_type.split('.')[0],c*100/Max))
 
@@ -71,7 +71,8 @@ class MultiViewDataSet(Dataset):
 
             self.x.append(image_views)
             self.y.append(label)
-        #print(self.y)
+        #print(self.x[0].shape)
+        self.nofviews, _ , self.width , self.height = self.x[0].shape
         #print('Data Loaded!')
 
     # Override to give PyTorch access to any image on the dataset

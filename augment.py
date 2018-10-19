@@ -15,7 +15,7 @@ def augmentImages(images,
             mixup=0):  # Mixup coeffecient, see https://arxiv.org/abs/1710.09412.pdf
   if resize is not None:
     images = tf.image.resize_bilinear(images, resize)
-  
+
   # My experiments showed that casting on GPU improves training performance
   #print(images.dtype)
   if images.dtype != tf.float32:
@@ -66,7 +66,7 @@ def augmentImages(images,
         one  = tf.ones([batch_size,1],dtype=tf.int32)
         ti = tf.cast(tf.concat([one,zero,tx,zero,one,ty,zero,zero],axis=1),dtype=tf.float32)
         transforms.append(ti)
-    
+
 
     if crop_probability > 0:
       crop_pct = tf.random_uniform([batch_size], crop_min_percent,
@@ -107,59 +107,56 @@ def augmentImages(images,
 
   return images#, labels
 
-#GPU Augmentation Graph
-# Creates a graph.
-c = []
-g_1 = tf.Graph()
+class augmentor():
 
-#nofGPUs = len(device_lib.list_local_devices())-1
-#print("Number of GPUs: ", nofGPUs)
-#nofGPUs = 1
-'''
-def get_number_of_GPUs():
-    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=.001,allow_growth = False)))
-    nofGPUs = len(device_lib.list_local_devices())-1
-    sess.close()
-    return nofGPUs
-'''
 
-#Get number of gpus:
-nofGPUs=str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
-print("Number of GPUs: ",nofGPUs)
-with g_1.as_default():
-#with tf.Graph().as_default():
-    with tf.device('/cpu:0'):
-                    # placeholders for graph input
-        view_ = tf.placeholder('float32', shape=(None, 48, 3, 224, 224), name='im0')
-        view_2 = tf.reshape(view_, [nofGPUs,-1 , 3, 224, 224], name='first_Reshape')
-        chunks =[]
-        for i in range(nofGPUs):
-            chunks.append(view_2[i,:])
-    for i in range(nofGPUs):
-        with tf.device('/gpu:%d' % i):
-            with tf.name_scope('%s_%d' % ('tower', i)) as scope:
-            # graph outputs
-                view = tf.transpose(chunks[i], perm=[0, 2, 3, 1])
-                view = augmentImages(view, 
-                    horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
-                c.append(tf.transpose(view, perm=[0, 3, 1 ,2]))
-                
-            
-    with tf.device('/cpu:0'):
-      aug_view = tf.concat(c,axis=0)
-      aug_view = tf.reshape(aug_view, shape=(-1, 48, 3, 224, 224))
+    def __init__(self, nofviews = 48, ngpus = 1):
+        #GPU Augmentation Graph
+        # Creates a graph.
+        c = []
+        g_1 = tf.Graph()
 
-# Creates a session with log_device_placement set to True.
-sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(allow_growth = True)))
-#per_process_gpu_memory_fraction=.1
-##########
-def augment_on_GPU(views):
-    #list_of_augviews = []
-    #print("Shape of views is:",views.shape)
-        val_feed_dict = {view_: views}
-        aug_views = sess.run(aug_view, feed_dict=val_feed_dict)
-    #list_of_augviews.append(aug_views)
-        #print("Shape of aug views is:",aug_views.shape)
-            
-    #inputs = np.stack(list_of_augviews, axis=1)
-        return aug_views
+        #Get number of gpus:
+        nofGPUs=str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
+        print("Number of GPUs: ",nofGPUs)
+        with g_1.as_default():
+        #with tf.Graph().as_default():
+            with tf.device('/cpu:0'):
+                            # placeholders for graph input
+                self.view_ = tf.placeholder('float32', shape=(None, nofviews, 3, 224, 224), name='im0')
+                view_2 = tf.reshape(self.view_, [nofGPUs,-1 , 3, 224, 224], name='first_Reshape')
+                chunks =[]
+                for i in range(nofGPUs):
+                    chunks.append(view_2[i,:])
+            for i in range(nofGPUs):
+                with tf.device('/gpu:%d' % i):
+                    with tf.name_scope('%s_%d' % ('tower', i)) as scope:
+                    # graph outputs
+                        view = tf.transpose(chunks[i], perm=[0, 2, 3, 1])
+                        view = augmentImages(view, 
+                            horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
+                        c.append(tf.transpose(view, perm=[0, 3, 1 ,2]))
+
+
+            with tf.device('/cpu:0'):
+              aug_view = tf.concat(c,axis=0)
+              self.aug_view = tf.reshape(aug_view, shape=(-1, nofviews, 3, 224, 224))
+
+        # Creates a session with log_device_placement set to True.
+        self.sess = tf.Session(graph=g_1,config=tf.ConfigProto(log_device_placement=True,gpu_options=tf.GPUOptions(allow_growth = True)))        
+
+
+
+
+    #per_process_gpu_memory_fraction=.1
+    ##########
+    def augment_on_GPU(self,views):
+        #list_of_augviews = []
+        #print("Shape of views is:",views.shape)
+            val_feed_dict = {self.view_: views}
+            aug_views = self.sess.run(self.aug_view, feed_dict=val_feed_dict)
+        #list_of_augviews.append(aug_views)
+            #print("Shape of aug views is:",aug_views.shape)
+
+        #inputs = np.stack(list_of_augviews, axis=1)
+            return aug_views

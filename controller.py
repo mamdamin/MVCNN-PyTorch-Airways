@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[14]:
+# In[1]:
 
 
 import torch
@@ -41,29 +41,22 @@ parser.add_argument('--data', metavar='DIR', default='/localscratch/Users/amotah
 parser.add_argument('-j', '--job_id', metavar='ID', default='', help='SGE job ID')
 parser.add_argument('--resnet', default=18, choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
 parser.add_argument('--epochs', default=10000, type=int, metavar='N', help='number of total epochs to run (default: 100)')
-parser.add_argument('-b', '--batch-size', default=22, type=int,
-                    metavar='N', help='mini-batch size (default: 4)')
-parser.add_argument('--lr', '--learning-rate', default=0.00001, type=float,
-                    metavar='LR', help='initial learning rate (default: 0.01)')
-parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                    help='momentum (default: 0.9)')
-parser.add_argument('--lr-decay-freq', default=200, type=float,
-                    metavar='W', help='learning rate decay (default: 30)')
-parser.add_argument('--lr-decay', default=0.5, type=float,
-                    metavar='W', help='learning rate decay (default: 0.1)')
-parser.add_argument('--print-freq', '-p', default=10, type=int,
-                    metavar='N', help='print frequency (default: 10)')
+parser.add_argument('-b', '--batch-size', default=22, type=int, metavar='N', help='mini-batch size (default: 4)')
+parser.add_argument('--lr', '--learning-rate', default=0.00001, type=float, metavar='LR', help='initial learning rate (default: 0.01)')
+parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum (default: 0.9)')
+parser.add_argument('--lr-decay-freq', default=200, type=float, metavar='W', help='learning rate decay (default: 30)')
+parser.add_argument('--lr-decay', default=0.5, type=float, metavar='W', help='learning rate decay (default: 0.1)')
+parser.add_argument('--print-freq', '-p', default=10, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('-r', '--resume', default='/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch/607310/checkpoint.pth.tar', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-o', '--output', default='/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch', type=str, metavar='PATH',
                     help='path to Output folder for logs and checkpoints (default: none)')
-parser.add_argument('-w', '--workers', default=1, type=int,
-                    metavar='N', help='Number of workers in input pipe (default: 4)')
-parser.add_argument('-wd', '--weight_decay', default=0.0, type=float,
-                    metavar='W', help='Weight decay factor (default: 0.1)')
+parser.add_argument('-w', '--workers', default=1, type=int, metavar='N', help='Number of workers in input pipe (default: 4)')
+parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, metavar='W', help='Weight decay factor (default: 0.1)')
+parser.add_argument('--mode', default='test', type=str, metavar='M', help='Operating mode (default: train)')
+parser.add_argument('--view_step', default=4, type=int, metavar='N', help='Steps in selecting views (default: 1)')
 
-parser.add_argument('--mode', default='test', type=str,
-                    metavar='M', help='Operating mode (default: train)')
+
 
 parser.add_argument('-f', '--fun', default='', type=str, metavar='PATH',
                     help='path to Output folder for logs and checkpoints (default: none)')
@@ -86,13 +79,17 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 print('Loading data')
 if args.mode=='test':
-    dset_test = MultiViewDataSet(args.data, 'test', transform=transform)
+    dset_test = MultiViewDataSet(args.data, 'test', step = args.view_step, transform=transform)
+    nofviews = dset_test.nofviews
     print("\nTest Data Loaded!")
 else:
-    dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
+    dset_train = MultiViewDataSet(args.data, 'train', step = args.view_step, transform=transform)
     print("\nTraining Data Loaded!")
-    dset_val = MultiViewDataSet(args.data, 'validation', transform=transform)
+    dset_val = MultiViewDataSet(args.data, 'validation', step = args.view_step, transform=transform)
     print("\nValidation Data Loaded!")
+    nofviews = dset_train.nofviews
+    
+print("Number of views per subject =", nofviews)
 
 
 # In[4]:
@@ -100,12 +97,14 @@ else:
 
 if args.mode=='test':
     test_loader = DataLoader(dset_test, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+    classes = dset_test.classes
 else:
     val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
     train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+    classes = dset_train.classes
 
 
-# In[24]:
+# In[5]:
 
 
 #torch.cuda.empty_cache()
@@ -125,7 +124,7 @@ if not os.path.exists(args.output):
 with open(os.path.join(args.output,'Arguments.txt'), "w") as text_file:
     print(args, file = text_file) #text_file.write(args)
     
-classes = dset_train.classes
+#classes = dset_train.classes
 
 print(len(classes), classes)
 
@@ -182,7 +181,7 @@ def train():
         # Convert from list of 3D to 4D
         #inputs = np.stack(inputs, axis=1)
         #inputs = np.stack(inputs, axis=0)
-        inputs = augment.augment_on_GPU(inputs)
+        inputs = augmentor.augment_on_GPU(inputs)
 
         #print("shape of Train input= ", inputs.shape)        
         #inputs = augment_on_GPU(inputs)
@@ -222,7 +221,7 @@ def eval(data_loader, is_test=False):
         with torch.no_grad():
             # Convert from list of 3D to 4D
             #inputs = np.stack(inputs, axis=0)
-            inputs = augment.augment_on_GPU(inputs)
+            inputs = augmentor.augment_on_GPU(inputs)
             
             #print("shape of Val input= ", inputs.shape)
             #inputs = augment_on_GPU(inputs)
@@ -255,16 +254,19 @@ def test(data_loader):
 
     total_loss = 0.0
     n = 0
-
+    test_output=[]
+    test_target=[]
     for i, (inputs, targets) in enumerate(data_loader):
         with torch.no_grad():
             # Convert from list of 3D to 4D
             #inputs = np.stack(inputs, axis=0)
             A = inputs
-            inputs = augment.augment_on_GPU(inputs)
+            inputs = augmentor.augment_on_GPU(inputs)
             #print("shape of Val input= ", inputs.shape)
             #inputs = augment_on_GPU(inputs)
             inputs = torch.from_numpy(inputs)
+            #test_target.append(targets.data.numpy())
+            test_target = targets.data.numpy()
             inputs, targets = inputs.cuda(), targets.cuda(0)
             inputs, targets = Variable(inputs), Variable(targets)
 
@@ -279,23 +281,28 @@ def test(data_loader):
             total += targets.size(0)
             correct += (predicted.cpu() == targets.cpu()).sum()
             
+            test_output.append(outputs.cpu().data.numpy())
             
-            plt.figure(figsize=(8, 64))
-            
+            #print(test_target)
+            #print(test_output)
+
             for i in range(args.batch_size):
-                B = A[i,0,:].transpose(0, 2)
-                I1 = B.transpose(0,1)
-                I = inputs.cpu()
-                B = I[i,0,:].transpose(0, 2)
-                I2 = B.transpose(0,1)
-                I2 = (I2.data.numpy()) 
-                
-                print(np.amin(I2))
-                print(np.amax(I2))
-                plt.subplot(args.batch_size,2,2*i+1)
-                plt.imshow(I1)
-                plt.subplot(args.batch_size,2,2*i+2)
-                plt.imshow(I2)
+                if test_target[i] > 2:
+                    B = A[i,4,:].transpose(0, 2)
+                    I1 = B.transpose(0,1)
+                    I1 = (I1.data.numpy())
+                    I = inputs.cpu()
+                    B = I[i,6,:].transpose(0, 2)
+                    I2 = B.transpose(0,1)
+                    I2 = (I2.data.numpy()) 
+
+                    #print(np.amin(I2-I1))
+                    #print(np.amax(I2-I1))
+                    plt.figure(figsize=(20, 40))
+                    plt.subplot(1,2,1)
+                    plt.imshow(1-I1)
+                    plt.subplot(1,2,2)
+                    plt.imshow(1-I2)
             break
             
             
@@ -305,10 +312,12 @@ def test(data_loader):
     return avg_test_acc, avg_loss
 
 # Training / Eval loop
+reload(augment)
+augmentor = augment.augmentor(nofviews,ngpus = len(device_ids))
+
 if args.resume or args.mode == 'test':
     load_checkpoint()
 
-reload(augment)
     
 if args.mode == 'test':
     print('Testing:')
@@ -359,7 +368,7 @@ else:
             print('Learning rate:', lr)
 
 
-# In[12]:
+# In[ ]:
 
 
 #Check input pipeline throughput
@@ -379,7 +388,7 @@ print('\nTime to read one epoch:  %.2f seconds.' % (time.time() - start))
 # In[ ]:
 
 
-
+print(augmentor.sess.run)
 
 
 # In[ ]:
@@ -403,7 +412,7 @@ B = B.transpose(0,1)
 plt.imshow(B)
 
 
-# In[25]:
+# In[ ]:
 
 
 get_ipython().system('jupyter nbconvert --to script interactive_controller.ipynb --output controller')
