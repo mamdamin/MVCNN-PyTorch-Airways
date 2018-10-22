@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[3]:
 
 
 import torch
@@ -23,17 +23,15 @@ import uuid
 import os
 import sys
 from importlib import reload
-
 from models.resnet import *
 import augment
-
-
 import util
 from logger import Logger
 from custom_dataset import MultiViewDataSet
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
-# In[2]:
+# In[6]:
 
 
 parser = argparse.ArgumentParser(description='MVCNN-PyTorch')
@@ -41,11 +39,11 @@ parser.add_argument('--data', metavar='DIR', default='/localscratch/Users/amotah
 parser.add_argument('-j', '--job_id', metavar='ID', default='', help='SGE job ID')
 parser.add_argument('--resnet', default=18, choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
 parser.add_argument('--epochs', default=10000, type=int, metavar='N', help='number of total epochs to run (default: 100)')
-parser.add_argument('-b', '--batch-size', default=22, type=int, metavar='N', help='mini-batch size (default: 4)')
+parser.add_argument('-b', '--batch-size', default=12, type=int, metavar='N', help='mini-batch size (default: 4)')
 parser.add_argument('--lr', '--learning-rate', default=0.00001, type=float, metavar='LR', help='initial learning rate (default: 0.01)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum (default: 0.9)')
 parser.add_argument('--lr-decay-freq', default=200, type=float, metavar='W', help='learning rate decay (default: 30)')
-parser.add_argument('--lr-decay', default=0.5, type=float, metavar='W', help='learning rate decay (default: 0.1)')
+parser.add_argument('--lr-decay', default=1.0, type=float, metavar='W', help='learning rate decay (default: 0.1)')
 parser.add_argument('--print-freq', '-p', default=10, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('-r', '--resume', default='/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch/607310/checkpoint.pth.tar', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -53,7 +51,8 @@ parser.add_argument('-o', '--output', default='/Shared/CTmechanics_COPDGene/Amin
                     help='path to Output folder for logs and checkpoints (default: none)')
 parser.add_argument('-w', '--workers', default=1, type=int, metavar='N', help='Number of workers in input pipe (default: 4)')
 parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, metavar='W', help='Weight decay factor (default: 0.1)')
-parser.add_argument('--mode', default='test', type=str, metavar='M', help='Operating mode (default: train)')
+parser.add_argument('--l1weight', default=0.0, type=float, metavar='W', help='L1 Regularization Weight (default: 0.0)')
+parser.add_argument('--mode', default='train', type=str, metavar='M', help='Operating mode (default: train)')
 parser.add_argument('--view_step', default=4, type=int, metavar='N', help='Steps in selecting views (default: 1)')
 
 
@@ -64,8 +63,15 @@ parser.add_argument('-f', '--fun', default='', type=str, metavar='PATH',
 
 args = parser.parse_args()
 
+'''
+args.mode = 'train'
+args.resume = ''
+args.l1weight = 10.0
+'''
+print(args)
 
-# In[3]:
+
+# In[7]:
 
 
 transform = transforms.Compose([
@@ -92,7 +98,7 @@ else:
 print("Number of views per subject =", nofviews)
 
 
-# In[4]:
+# In[8]:
 
 
 if args.mode=='test':
@@ -104,7 +110,7 @@ else:
     classes = dset_train.classes
 
 
-# In[5]:
+# In[ ]:
 
 
 #torch.cuda.empty_cache()
@@ -155,6 +161,10 @@ lr = args.lr
 n_epochs = args.epochs
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(resnet.parameters(), lr=lr, weight_decay=args.weight_decay)
+_,model = next(resnet.named_children())
+for name,fc_layer in model.named_children():
+    if name in ['fc']:
+        break
 
 best_acc = 0.0
 best_loss = 0.0
@@ -176,7 +186,6 @@ def load_checkpoint():
 
 def train():
     train_size = len(train_loader)
-
     for i, (inputs, targets) in enumerate(train_loader):
         # Convert from list of 3D to 4D
         #inputs = np.stack(inputs, axis=1)
@@ -193,16 +202,18 @@ def train():
         # compute output
         outputs = resnet(inputs)
         #print(outputs.get_device(), targets.get_device())
-
+        regularization_loss = args.l1weight*torch.mean(torch.abs(fc_layer.weight))
+                
         loss = criterion(outputs, targets)
-
+        loss += regularization_loss
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         if (i + 1) % args.print_freq == 0:
-            print("\tIter [%d/%d] Loss: %.4f" % (i + 1, train_size, loss.item()))
+            #print(regularization_loss)
+            print("\tIter [%d/%d] Loss: %.4f, Reg: %.6f" % (i + 1, train_size, loss.item(), regularization_loss.item()))
 
 
 # Validation and Testing
@@ -285,7 +296,15 @@ def test(data_loader):
             
             #print(test_target)
             #print(test_output)
+            
+            _,model = next(resnet.named_children())
+            for name,module in model.named_children():
+                if name in ['fc']:
+                    print(module.weight)
+                    regularization_loss = torch.mean(torch.abs(module))
+            print(regularization_loss)
 
+                #regularization_loss += torch.sum(torch.abs(param))  
             for i in range(args.batch_size):
                 if test_target[i] > 2:
                     B = A[i,4,:].transpose(0, 2)
@@ -374,7 +393,7 @@ else:
 #Check input pipeline throughput
 start = time.time()
 for i, (inputs, targets) in enumerate(train_loader):
-    #inputs = augment.augment_on_GPU(inputs)
+    #inputs = augmentor.augment_on_GPU(inputs)
     if i==0:
         print("Input tensor shape: ",inputs.shape)
     
@@ -388,7 +407,10 @@ print('\nTime to read one epoch:  %.2f seconds.' % (time.time() - start))
 # In[ ]:
 
 
-print(augmentor.sess.run)
+_,model = next(resnet.named_children())
+for name,module in model.named_children():
+    if name in ['fc']:
+        print(module.weight)
 
 
 # In[ ]:
@@ -412,7 +434,7 @@ B = B.transpose(0,1)
 plt.imshow(B)
 
 
-# In[ ]:
+# In[2]:
 
 
 get_ipython().system('jupyter nbconvert --to script interactive_controller.ipynb --output controller')
@@ -436,7 +458,7 @@ print("s = ",A)
 # In[ ]:
 
 
-
+get_ipython().system('nvidia-smi')
 
 
 # In[ ]:
