@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[3]:
+# In[ ]:
 
 
 import torch
@@ -29,9 +29,10 @@ import util
 from logger import Logger
 from custom_dataset import MultiViewDataSet
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+get_ipython().system('~/copydata2local.sh')
 
 
-# In[6]:
+# In[ ]:
 
 
 parser = argparse.ArgumentParser(description='MVCNN-PyTorch')
@@ -39,7 +40,7 @@ parser.add_argument('--data', metavar='DIR', default='/localscratch/Users/amotah
 parser.add_argument('-j', '--job_id', metavar='ID', default='', help='SGE job ID')
 parser.add_argument('--resnet', default=18, choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
 parser.add_argument('--epochs', default=10000, type=int, metavar='N', help='number of total epochs to run (default: 100)')
-parser.add_argument('-b', '--batch-size', default=12, type=int, metavar='N', help='mini-batch size (default: 4)')
+parser.add_argument('-b', '--batch-size', default=24, type=int, metavar='N', help='mini-batch size (default: 4)')
 parser.add_argument('--lr', '--learning-rate', default=0.00001, type=float, metavar='LR', help='initial learning rate (default: 0.01)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum (default: 0.9)')
 parser.add_argument('--lr-decay-freq', default=200, type=float, metavar='W', help='learning rate decay (default: 30)')
@@ -49,11 +50,11 @@ parser.add_argument('-r', '--resume', default='/Shared/CTmechanics_COPDGene/Amin
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-o', '--output', default='/Shared/CTmechanics_COPDGene/Amin/Airway_PyTorch', type=str, metavar='PATH',
                     help='path to Output folder for logs and checkpoints (default: none)')
-parser.add_argument('-w', '--workers', default=1, type=int, metavar='N', help='Number of workers in input pipe (default: 4)')
+parser.add_argument('-w', '--workers', default=0, type=int, metavar='N', help='Number of workers in input pipe (default: 4)')
 parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, metavar='W', help='Weight decay factor (default: 0.1)')
 parser.add_argument('--l1weight', default=0.0, type=float, metavar='W', help='L1 Regularization Weight (default: 0.0)')
 parser.add_argument('--mode', default='train', type=str, metavar='M', help='Operating mode (default: train)')
-parser.add_argument('--view_step', default=4, type=int, metavar='N', help='Steps in selecting views (default: 1)')
+parser.add_argument('--view_step', default=1, type=int, metavar='N', help='Steps in selecting views (default: 1)')
 
 
 
@@ -71,7 +72,7 @@ args.l1weight = 10.0
 print(args)
 
 
-# In[7]:
+# In[ ]:
 
 
 transform = transforms.Compose([
@@ -98,7 +99,7 @@ else:
 print("Number of views per subject =", nofviews)
 
 
-# In[8]:
+# In[ ]:
 
 
 if args.mode=='test':
@@ -296,15 +297,6 @@ def test(data_loader):
             
             #print(test_target)
             #print(test_output)
-            
-            _,model = next(resnet.named_children())
-            for name,module in model.named_children():
-                if name in ['fc']:
-                    print(module.weight)
-                    regularization_loss = torch.mean(torch.abs(module))
-            print(regularization_loss)
-
-                #regularization_loss += torch.sum(torch.abs(param))  
             for i in range(args.batch_size):
                 if test_target[i] > 2:
                     B = A[i,4,:].transpose(0, 2)
@@ -434,7 +426,7 @@ B = B.transpose(0,1)
 plt.imshow(B)
 
 
-# In[2]:
+# In[ ]:
 
 
 get_ipython().system('jupyter nbconvert --to script interactive_controller.ipynb --output controller')

@@ -71,6 +71,7 @@ class MultiViewDataSet(Dataset):
 
             self.x.append(image_views)
             self.y.append(label)
+            assert image_views.shape[0]==48,"Object with number of views other than 48 was found!"
         #print(self.x[0].shape)
         self.nofviews, _ , self.width , self.height = self.x[0].shape
         #print('Data Loaded!')
