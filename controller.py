@@ -29,14 +29,18 @@ import util
 from logger import Logger
 from custom_dataset import MultiViewDataSet
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-get_ipython().system('~/copydata2local.sh')
+try:
+    get_ipython().system('~/copydata2local.sh MV_CNN_Y_multi')
+except:
+    pass
+        
 
 
 # In[ ]:
 
 
 parser = argparse.ArgumentParser(description='MVCNN-PyTorch')
-parser.add_argument('--data', metavar='DIR', default='/localscratch/Users/amotahari/MV_CNN_views', help='path to dataset')
+parser.add_argument('--data', metavar='DIR', default='/localscratch/Users/amotahari/MV_CNN_Y_multi', help='path to dataset')
 parser.add_argument('-j', '--job_id', metavar='ID', default='', help='SGE job ID')
 parser.add_argument('--resnet', default=18, choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
 parser.add_argument('--epochs', default=10000, type=int, metavar='N', help='number of total epochs to run (default: 100)')
@@ -345,7 +349,7 @@ else:
         resnet.train()
         train()
         print('Time taken: %.2f sec.' % (time.time() - start))
-        if (epoch + 1) % 5 == 0: # Eval every 5 epoch
+        if (epoch + 1) % 1 == 0: # Eval every 5 epoch
             resnet.eval()
             avg_test_acc, avg_loss = eval(val_loader)
 
