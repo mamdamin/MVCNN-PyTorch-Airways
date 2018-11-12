@@ -108,7 +108,8 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AvgPool2d(7, stride=1) #nn.AdaptiveAvgPool2d(7)
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        #self.fc0 = nn.Linear(512 * block.expansion, 512 * block.expansion)
+        self.fc  = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -162,6 +163,7 @@ class ResNet(nn.Module):
         for i in range(1, len(view_pool)):
             pooled_view = torch.max(pooled_view, view_pool[i])
 
+        #pooled_view = self.fc0(pooled_view)
         pooled_view = self.fc(pooled_view)
 
         return pooled_view

@@ -1,9 +1,9 @@
 import torch
 import os
 
-def logEpoch(logger, model, epoch, loss, accuracy):
+def logEpoch(logger, model, epoch, training_loss, loss, accuracy):
     # 1. Log scalar values (scalar summary)
-    info = {'loss': loss.item(), 'accuracy': accuracy.item()}
+    info = {'training_loss':training_loss.item(), 'loss': loss.item(), 'accuracy': accuracy.item()}
 
     for tag, value in info.items():
         logger.scalar_summary(tag, value, epoch)

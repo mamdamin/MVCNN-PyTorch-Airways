@@ -58,7 +58,7 @@ parser.add_argument('-w', '--workers', default=0, type=int, metavar='N', help='N
 parser.add_argument('-wd', '--weight_decay', default=0.0, type=float, metavar='W', help='Weight decay factor (default: 0.1)')
 parser.add_argument('--l1weight', default=0.0, type=float, metavar='W', help='L1 Regularization Weight (default: 0.0)')
 parser.add_argument('--mode', default='train', type=str, metavar='M', help='Operating mode (default: train)')
-parser.add_argument('--view_step', default=1, type=int, metavar='N', help='Steps in selecting views (default: 1)')
+parser.add_argument('--view_step', default=2, type=int, metavar='N', help='Steps in selecting views (default: 1)')
 
 
 
@@ -71,7 +71,7 @@ args = parser.parse_args()
 '''
 args.mode = 'train'
 args.resume = ''
-args.l1weight = 10.0
+args.l1weight = 1.0
 '''
 print(args)
 
@@ -82,7 +82,7 @@ print(args)
 transform = transforms.Compose([
     #transforms.CenterCrop(500),
     #transforms.RandomAffine(30, translate=(.2,.2), scale=None, shear=None, resample=BILINEAR, fillcolor=0), # Augmentation
-    transforms.Resize(224),
+    #transforms.Resize(224),
     transforms.ToTensor(),
 ])
 
@@ -166,10 +166,13 @@ lr = args.lr
 n_epochs = args.epochs
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(resnet.parameters(), lr=lr, weight_decay=args.weight_decay)
+fc_layers = []
 _,model = next(resnet.named_children())
-for name,fc_layer in model.named_children():
-    if name in ['fc']:
-        break
+for name,layer in model.named_children():
+    if name in ['fc','fc0']:
+        fc_layers.append(layer)
+
+print('FC Layers (for L1 regularization:)', fc_layers)
 
 best_acc = 0.0
 best_loss = 0.0
@@ -191,6 +194,7 @@ def load_checkpoint():
 
 def train():
     train_size = len(train_loader)
+    training_loss = []
     for i, (inputs, targets) in enumerate(train_loader):
         # Convert from list of 3D to 4D
         #inputs = np.stack(inputs, axis=1)
@@ -207,19 +211,23 @@ def train():
         # compute output
         outputs = resnet(inputs)
         #print(outputs.get_device(), targets.get_device())
-        regularization_loss = args.l1weight*torch.mean(torch.abs(fc_layer.weight))
-                
+        #print(fc.weight for fc in fc_layers)
+        l1sum = 0.0;
+        for fc_layer in fc_layers:
+            l1sum += torch.mean(torch.abs(fc_layer.weight))
+        regularization_loss = args.l1weight*l1sum
         loss = criterion(outputs, targets)
         loss += regularization_loss
+        training_loss.append(loss)
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        
         if (i + 1) % args.print_freq == 0:
             #print(regularization_loss)
             print("\tIter [%d/%d] Loss: %.4f, Reg: %.6f" % (i + 1, train_size, loss.item(), regularization_loss.item()))
-
+    return torch.mean(torch.stack(training_loss))
 
 # Validation and Testing
 def eval(data_loader, is_test=False):
@@ -347,7 +355,8 @@ else:
         start = time.time()
 
         resnet.train()
-        train()
+        training_loss = train()
+        print('Training loss = %.4f' % training_loss)
         print('Time taken: %.2f sec.' % (time.time() - start))
         if (epoch + 1) % 1 == 0: # Eval every 5 epoch
             resnet.eval()
@@ -359,7 +368,7 @@ else:
 
             # Log epoch to tensorboard
             # See log using: tensorboard --logdir='logs' --port=6006
-            util.logEpoch(logger, resnet, epoch + 1, avg_loss, avg_test_acc)
+            util.logEpoch(logger, resnet, epoch + 1, training_loss , avg_loss, avg_test_acc)
 
             # Save model
             if avg_test_acc > best_acc:
