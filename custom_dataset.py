@@ -40,7 +40,7 @@ class MultiViewDataSet(Dataset):
         print(myset)
         subjects = pd.read_csv(myset,header=None,sep=' ',names=['MVtxt','label'])
         #subjects = subjects.iloc[:24,:]
-        #print(subjects.head(2),'\n')
+        #print(subjects.head(100),'\n')
         c = 0
         Max = len(subjects)
         for idx, subject,label in subjects.itertuples():

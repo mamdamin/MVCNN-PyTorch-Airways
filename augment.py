@@ -18,12 +18,13 @@ def augmentImages(images,
 
   # My experiments showed that casting on GPU improves training performance
   #print(images.dtype)
+  '''
   if images.dtype != tf.float32:
     images = tf.image.convert_image_dtype(images, dtype=tf.float32)
     images = tf.subtract(images, 0.5)
     images = tf.multiply(images, 2.0)
   #labels = tf.to_float(labels)
-
+  '''
   with tf.name_scope('augmentation'):
     shp = tf.shape(images)
     batch_size, height, width = shp[0], shp[1], shp[2]
@@ -134,7 +135,7 @@ class augmentor():
                     # graph outputs
                         view = tf.transpose(chunks[i], perm=[0, 2, 3, 1])
                         view = augmentImages(view, 
-                            horizontal_flip=False, vertical_flip=False, translate = 64, rotate=30, crop_probability=0, mixup=0)
+                            horizontal_flip=True, vertical_flip=False, translate = 64, rotate=45, crop_probability=1, mixup=0)
                         c.append(tf.transpose(view, perm=[0, 3, 1 ,2]))
 
 
